@@ -1,0 +1,65 @@
+---
+title: "Midterm"
+output: html_document
+date: "2023-10-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(sf)
+library(geojsonio)
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+library(plotly)
+```
+
+```{r}
+singapore_geojson <- st_read("~/Desktop/district_and_planning_area.geojson")
+```
+```{r}
+singapore_data <- read.csv("~/Desktop/respopagesexfa2011to2020/respopagesexfa2011to2020.csv")
+old_people <- singapore_data[singapore_data$AG %in% c("65_to_69", "70_to_74", "75_to_79", "80_to_84", "85_to_89", "90_and_over"), ]
+
+filtered_data <- old_people[, c("PA", "SZ", "AG", "Pop")]
+filtered_data <- filtered_data %>%
+  rename(planning_area = PA)
+
+count_oldpeople <- filtered_data %>%
+  group_by(planning_area) %>%
+  summarise(pop_sum = sum(Pop, na.rm = TRUE))
+```
+
+```{r}
+merged_data <- singapore_geojson %>%
+  left_join(count_oldpeople, by = c("planning_area" = "planning_area"))
+
+choropleth_map <- ggplot() +
+  geom_sf(data = merged_data, aes(fill = pop_sum, text = paste("Planning Area: ", planning_area, "<br>Population: ", pop_sum)), color = "white", size = 0.3) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Population") +
+  labs(
+    title = "Population of Elderly Singaporeans by Planning Area",
+    subtitle = "Choropleth by Yosephine Manihuruk",
+    caption = ""
+  ) +
+  coord_sf(crs = st_crs(merged_data))
+
+choropleth_map <- choropleth_map +
+  theme(
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 12)
+  )
+
+print(choropleth_map)
+ggsave("choropleth_map.png", plot = choropleth_map)
+
+
+interactive_choropleth <- ggplotly(choropleth_map, tooltip = "text")
+
+
+interactive_choropleth
+```
+
